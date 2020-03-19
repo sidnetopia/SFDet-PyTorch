@@ -45,7 +45,7 @@ class VGG(object):
         """Forms the layers of the model based on self.config
 
         Returns:
-            array -- contains all layers of VGG model based on self.config
+            list -- contains all layers of VGG model based on self.config
         """
 
         layers = []
