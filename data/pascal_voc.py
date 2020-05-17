@@ -151,8 +151,8 @@ class PascalVOC(Dataset):
             dataset
 
         Returns:
-            Tensor, list -- tensor representation of the image, list of
-            bounding boxes of objects in the image formatted as
+            torch.Tensor, np.ndarray, -- tensor representation of the image,
+            list of bounding boxes of objects in the image formatted as
             [xmin, ymin, xmax, ymax, class]
         """
 
@@ -170,9 +170,9 @@ class PascalVOC(Dataset):
             dataset
 
         Returns:
-            Tensor, list, int, int -- tensor representation of the image,
-            list of bounding boxes of objects in the image formatted as
-            [xmin, ymin, xmax, ymax, class], height, width
+            torch.Tensor, np.ndarray, int, int -- tensor representation of
+            the image, list of bounding boxes of objects in the image
+            formatted as [xmin, ymin, xmax, ymax, class], height, width
         """
 
         image_id = self.ids[index]
@@ -247,7 +247,7 @@ class PascalVOC(Dataset):
             dataset
 
         Returns:
-            Tensor -- tensor representation of the image
+            torch.Tensor -- tensor representation of the image
         """
 
         return torch.Tensor(self.pull_image(index)).unsqueeze_(0)
