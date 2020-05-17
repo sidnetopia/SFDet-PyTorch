@@ -51,16 +51,16 @@ class VOCAnnotationTransform(object):
 
         for obj in target.iter('object'):
             difficult = int(obj.find('difficult').text) == 1
-            if not self.keep_difficult and difficult:
-                continue
-            name = obj.find('name').text.lower().strip()
-            bbox = obj.find('bndbox')
-            bndbox = [(int(bbox.find('xmin').text) - 1) / width,
-                      (int(bbox.find('ymin').text) - 1) / height,
-                      (int(bbox.find('xmax').text) - 1) / width,
-                      (int(bbox.find('ymax').text) - 1) / height,
-                      self.class_to_index[name]]
-            labels += [bndbox]
+
+            if not difficult or self.keep_difficult and difficult:
+                name = obj.find('name').text.lower().strip()
+                bbox = obj.find('bndbox')
+                bndbox = [(int(bbox.find('xmin').text) - 1) / width,
+                          (int(bbox.find('ymin').text) - 1) / height,
+                          (int(bbox.find('xmax').text) - 1) / width,
+                          (int(bbox.find('ymax').text) - 1) / height,
+                          self.class_to_index[name]]
+                labels += [bndbox]
 
         return labels
 
@@ -177,8 +177,8 @@ class PascalVOC(Dataset):
 
         image_id = self.ids[index]
 
-        target_path = self.annotation_path.format(image_id)
-        image_path = self.image_path.format(image_id)
+        target_path = self.annotation_path.format(*image_id)
+        image_path = self.image_path.format(*image_id)
 
         target = ET.parse(target_path).getroot()
         image = cv2.imread(image_path)
@@ -212,7 +212,7 @@ class PascalVOC(Dataset):
         """
 
         image_id = self.ids[index]
-        image_path = self.image_path.format(image_id)
+        image_path = self.image_path.format(*image_id)
         return cv2.imread(image_path, cv2.IMREAD_COLOR)
 
     def pull_annotation(self,
@@ -231,11 +231,11 @@ class PascalVOC(Dataset):
         """
 
         image_id = self.ids[index]
-        target_path = self.annotation_path.format(image_id)
+        target_path = self.annotation_path.format(*image_id)
         target = ET.parse(target_path).getroot()
         target = self.target_transform(target, 1, 1)
 
-        return image_id[1], target
+        return image_id[2], target
 
     def pull_tensor(self,
                     index):
