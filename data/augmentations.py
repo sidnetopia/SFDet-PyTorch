@@ -27,9 +27,16 @@ def jaccard_numpy(box_a,
 
 
 class Compose(object):
+    """This class applies a list of transformation to an image."""
 
     def __init__(self,
                  transforms):
+        """Class constructor of Compose
+
+        Arguments:
+            transforms {list} -- list of transformation to be applied to the
+            image
+        """
 
         super(Compose, self).__init__()
         self.transforms = transforms
@@ -38,6 +45,23 @@ class Compose(object):
                  image,
                  boxes=None,
                  labels=None):
+        """Executed when the class is called as a function
+
+        Arguments:
+            image {np.ndarray} -- image pixels represented as np.ndarray
+
+        Keyword Arguments:
+            boxes {np.ndarray} -- list of bounding boxes of objects in the
+            image formatted as [xmin, ymin, xmax, ymax] (default: {None})
+            labels {np.ndarray} -- list of the corresponding classes of the
+            bounding boxes (default: {None})
+
+        Returns:
+            np.ndarray, np.ndarray, np.ndarray -- transformed image pixels,
+            list of bounding boxes of objects in the image formatted as
+            [xmin, ymin, xmax, ymax], list of the corresponding classes of the
+            bounding boxes
+        """
 
         for transform in self.transforms:
             image, boxes, labels = transform(image, boxes, labels)
