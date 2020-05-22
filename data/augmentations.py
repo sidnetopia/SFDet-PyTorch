@@ -1,6 +1,5 @@
 import cv2
 import torch
-import types
 import numpy as np
 from numpy import random
 
@@ -19,10 +18,8 @@ def jaccard_numpy(box_a,
                   box_b):
 
     intersection = intersect(box_a, box_b)
-    area_a = ((box_a[:, 2] - box_a[:, 0]) *
-              (box_a[:, 3] - box_a[:, 1]))
-    area_b = ((box_b[2] - box_b[0]) *
-              (box_b[3] - box_b[1]))
+    area_a = ((box_a[:, 2] - box_a[:, 0]) * (box_a[:, 3] - box_a[:, 1]))
+    area_b = ((box_b[2] - box_b[0]) * (box_b[3] - box_b[1]))
 
     union = area_a + area_b - intersection
 
@@ -48,26 +45,11 @@ class Compose(object):
         return image, boxes, labels
 
 
-class Lambda(object):
-
-    def __init__(self,
-                 lambd):
-
-        super(Lambda, self).__init__()
-        assert isinstance(lambd, types.LambdaType)
-        self.lambd = lambd
-
-    def __call__(self,
-                 image,
-                 boxes=None,
-                 labels=None):
-
-        return self.lambd(image, boxes, labels)
-
-
 class ConvertToFloat(object):
+    """This class casts an np.ndarray to floating-point data type."""
 
     def __init__(self):
+        """Class constructor for ConvertToFloat"""
 
         super(ConvertToFloat, self).__init__()
 
@@ -75,14 +57,37 @@ class ConvertToFloat(object):
                  image,
                  boxes=None,
                  labels=None):
+        """Executed when the class is called as a function
+
+        Arguments:
+            image {np.ndarray} -- image pixels represented as np.ndarray
+
+        Keyword Arguments:
+            boxes {np.ndarray} -- list of bounding boxes of objects in the
+            image formatted as [xmin, ymin, xmax, ymax] (default: {None})
+            labels {np.ndarray} -- list of the corresponding classes of the
+            bounding boxes (default: {None})
+
+        Returns:
+            np.ndarray, np.ndarray, np.ndarray -- image pixels casted to
+            floating-point data type, list of bounding boxes of objects in
+            the image formatted as [xmin, ymin, xmax, ymax], list of the
+            corresponding classes of the bounding boxes
+        """
 
         return image.astype(np.float32), boxes, labels
 
 
 class SubtractMeans(object):
+    """This class subtracts the mean from the pixel values of the image"""
 
     def __init__(self,
                  mean):
+        """Class constructor for SubtractMeans
+
+        Arguments:
+            mean {tuple} -- mean
+        """
 
         super(SubtractMeans, self).__init__()
         self.mean = np.array(mean, dtype=np.float32)
@@ -91,6 +96,23 @@ class SubtractMeans(object):
                  image,
                  boxes=None,
                  labels=None):
+        """Executed when the class is called as a function
+
+        Arguments:
+            image {np.ndarray} -- image pixels represented as np.ndarray
+
+        Keyword Arguments:
+            boxes {np.ndarray} -- list of bounding boxes of objects in the
+            image formatted as [xmin, ymin, xmax, ymax] (default: {None})
+            labels {np.ndarray} -- list of the corresponding classes of the
+            bounding boxes (default: {None})
+
+        Returns:
+            np.ndarray, np.ndarray, np.ndarray -- image pixels subtracted
+            by the mean, list of bounding boxes of objects in the image
+            formatted as [xmin, ymin, xmax, ymax], list of the corresponding
+            classes of the bounding boxes
+        """
 
         image = image.astype(np.float32)
         image -= self.mean
@@ -98,8 +120,11 @@ class SubtractMeans(object):
 
 
 class ToAbsoluteCoords(object):
+    """This class converts the coordinates of bounding boxes to
+    non-scaled values"""
 
     def __init__(self):
+        """Class constructor for ToAbsoluteCoords"""
 
         super(ToAbsoluteCoords, self).__init__()
 
@@ -107,6 +132,24 @@ class ToAbsoluteCoords(object):
                  image,
                  boxes=None,
                  labels=None):
+        """Executed when the class is called as a function
+
+        Arguments:
+            image {np.ndarray} -- image pixels represented as np.ndarray
+
+        Keyword Arguments:
+            boxes {np.ndarray} -- list of bounding boxes of objects in the
+            image formatted as [xmin, ymin, xmax, ymax] (default: {None})
+            labels {np.ndarray} -- list of the corresponding classes of the
+            bounding boxes (default: {None})
+
+        Returns:
+            np.ndarray, np.ndarray, np.ndarray -- image pixels, list of
+            bounding boxes of objects in the image formatted as
+            [xmin, ymin, xmax, ymax] converted to non-scaled
+            coordinates, list of the corresponding classes of the
+            bounding boxes
+        """
 
         height, width, channels = image.shape
         boxes[:, 0] *= width
@@ -118,8 +161,11 @@ class ToAbsoluteCoords(object):
 
 
 class ToPercentCoords(object):
+    """This class converts the coordinates of bounding boxes to
+    scaled values with respect to the width and the height of the image"""
 
     def __init__(self):
+        """Class constructor for ToPercentCoords"""
 
         super(ToPercentCoords, self).__init__()
 
@@ -127,6 +173,23 @@ class ToPercentCoords(object):
                  image,
                  boxes=None,
                  labels=None):
+        """Executed when the class is called as a function
+
+        Arguments:
+            image {np.ndarray} -- image pixels represented as np.ndarray
+
+        Keyword Arguments:
+            boxes {np.ndarray} -- list of bounding boxes of objects in the
+            image formatted as [xmin, ymin, xmax, ymax] (default: {None})
+            labels {np.ndarray} -- list of the corresponding classes of the
+            bounding boxes (default: {None})
+
+        Returns:
+            np.ndarray, np.ndarray, np.ndarray -- image pixels, list of
+            bounding boxes of objects in the image formatted as
+            [xmin, ymin, xmax, ymax] converted to scaled coordinates,
+            list of the corresponding classes of the bounding boxes
+        """
 
         height, width, channels = image.shape
         boxes[:, 0] /= width
@@ -138,9 +201,15 @@ class ToPercentCoords(object):
 
 
 class Resize(object):
+    """This class resizes the image to output size"""
 
     def __init__(self,
                  size=300):
+        """Class constructor for Resize
+
+        Keyword Arguments:
+            size {int} -- output size (default: {300})
+        """
 
         super(Resize, self).__init__()
         self.size = size
@@ -149,16 +218,46 @@ class Resize(object):
                  image,
                  boxes=None,
                  labels=None):
+        """Executed when the class is called as a function
+
+        Arguments:
+            image {np.ndarray} -- image pixels represented as np.ndarray
+
+        Keyword Arguments:
+            boxes {np.ndarray} -- list of bounding boxes of objects in the
+            image formatted as [xmin, ymin, xmax, ymax] (default: {None})
+            labels {np.ndarray} -- list of the corresponding classes of the
+            bounding boxes (default: {None})
+
+        Returns:
+            np.ndarray, np.ndarray, np.ndarray -- pixels of the resized image,
+            list of bounding boxes of objects in the image formatted as
+            [xmin, ymin, xmax, ymax], list of the corresponding classes of the
+            bounding boxes
+        """
 
         image = cv2.resize(image, (self.size, self.size))
         return image, boxes, labels
 
 
 class RandomSaturation(object):
+    """This class adjusts the saturation of the image. This expects an image
+    in HSV color space, where the 2nd channel (saturation channel) should have
+    values between 0.0 to 1.0"""
 
     def __init__(self,
                  lower=0.5,
                  upper=1.5):
+        """Class constructor for RandomSaturation
+
+        Keyword Arguments:
+            lower {int} -- lower bound of the interval used in generating
+            a random number from a uniform distribution to adjust saturation
+            (default: {0.5})
+            upper {number} -- upper bound of the interval used in generating
+            a random number from a uniform distribution to adjust saturation.
+            (default: {1.5})
+        """
 
         super(RandomSaturation, self).__init__()
         self.lower = lower
@@ -170,17 +269,48 @@ class RandomSaturation(object):
                  image,
                  boxes=None,
                  labels=None):
+        """Executed when the class is called as a function
+
+        Arguments:
+            image {np.ndarray} -- image pixels represented as np.ndarray. This
+            should be in HSV color space.
+
+        Keyword Arguments:
+            boxes {np.ndarray} -- list of bounding boxes of objects in the
+            image formatted as [xmin, ymin, xmax, ymax] (default: {None})
+            labels {np.ndarray} -- list of the corresponding classes of the
+            bounding boxes (default: {None})
+
+        Returns:
+            np.ndarray, np.ndarray, np.ndarray -- image pixels in HSV color
+            space with adjusted saturation channel, list of bounding boxes of
+            objects in the image formatted as [xmin, ymin, xmax, ymax],
+            list of the corresponding classes of the bounding boxes
+        """
 
         if random.randint(2):
             image[:, :, 1] *= random.uniform(self.lower, self.upper)
+
+            # limits the value of the saturation channel to 1.0
+            image[:, :, 1] = np.clip(image[:, :, 1], a_min=0.0, a_max=1.0)
 
         return image, boxes, labels
 
 
 class RandomHue(object):
+    """This class adjusts the hue of the image. This expects an image
+    in HSV color space, where the 1st channel (hue channel) should have
+    values between 0.0 to 360.0"""
 
     def __init__(self,
                  delta=18.0):
+        """Class constructor for RandomSaturation
+
+        Keyword Arguments:
+            delta {int} -- lower bound and upper bound of the interval used
+            in generating a random number from a uniform distribution to adjust
+            hue (default: {18.0})
+        """
 
         super(RandomHue, self).__init__()
         assert delta >= 0.0 and delta <= 360.0
@@ -190,9 +320,29 @@ class RandomHue(object):
                  image,
                  boxes=None,
                  labels=None):
+        """Executed when the class is called as a function
+
+        Arguments:
+            image {np.ndarray} -- image pixels represented as np.ndarray. This
+            should be in HSV color space.
+
+        Keyword Arguments:
+            boxes {np.ndarray} -- list of bounding boxes of objects in the
+            image formatted as [xmin, ymin, xmax, ymax] (default: {None})
+            labels {np.ndarray} -- list of the corresponding classes of the
+            bounding boxes (default: {None})
+
+        Returns:
+            np.ndarray, np.ndarray, np.ndarray -- image pixels in HSV color
+            space with adjusted hue channel, list of bounding boxes of
+            objects in the image formatted as [xmin, ymin, xmax, ymax],
+            list of the corresponding classes of the bounding boxes
+        """
 
         if random.randint(2):
             image[:, :, 0] += random.uniform(-self.delta, self.delta)
+
+            # limits the value of the hue channel to 360
             image[:, :, 0][image[:, :, 0] > 360.0] -= 360.0
             image[:, :, 0][image[:, :, 0] < 0.0] += 360.0
 
@@ -200,21 +350,41 @@ class RandomHue(object):
 
 
 class RandomLightingNoise(object):
+    """This class randomly swaps the channels of the image to create a
+    lighting noise effect. This class calls the class SwapChannels."""
 
     def __init__(self):
+        """Class constructor for RandomLightingNoise"""
 
         super(RandomLightingNoise, self).__init__()
-        self.perms = ((0, 1, 2), (0, 2, 1),
-                      (1, 0, 2), (1, 2, 0),
-                      (2, 0, 1), (2, 1, 0))
+        self.permutations = ((0, 1, 2), (0, 2, 1),
+                             (1, 0, 2), (1, 2, 0),
+                             (2, 0, 1), (2, 1, 0))
 
     def __call__(self,
                  image,
                  boxes=None,
                  labels=None):
+        """Executed when the class is called as a function
+
+        Arguments:
+            image {np.ndarray} -- image pixels represented as np.ndarray
+
+        Keyword Arguments:
+            boxes {np.ndarray} -- list of bounding boxes of objects in the
+            image formatted as [xmin, ymin, xmax, ymax] (default: {None})
+            labels {np.ndarray} -- list of the corresponding classes of the
+            bounding boxes (default: {None})
+
+        Returns:
+            np.ndarray, np.ndarray, np.ndarray -- pixels of the image with
+            swapped channels, list of bounding boxes of objects in the image
+            formatted as [xmin, ymin, xmax, ymax], list of the corresponding
+            classes of the bounding boxes
+        """
 
         if random.randint(2):
-            swap = self.perms[random.randint(len(self.perms))]
+            swap = self.permutations[random.randint(len(self.permutations))]
             shuffle = SwapChannels(swap)
             image = shuffle(image)
 
@@ -222,10 +392,20 @@ class RandomLightingNoise(object):
 
 
 class ConvertColor(object):
+    """This class converts the image to another color space. This class
+    supports the conversion from BGT to HSV color space and vice-versa."""
 
     def __init__(self,
                  current='BGR',
                  transform='HSV'):
+        """Class constructor for ConvertColor
+
+        Keyword Arguments:
+            current {str} -- the input color space of the image
+            (default: {'BGR'})
+            transform {str} -- the output color space of the image
+            (default: {'HSV'})
+        """
 
         super(ConvertColor, self).__init__()
         self.current = current
@@ -235,6 +415,23 @@ class ConvertColor(object):
                  image,
                  boxes=None,
                  labels=None):
+        """Executed when the class is called as a function
+
+        Arguments:
+            image {np.ndarray} -- image pixels represented as np.ndarray
+
+        Keyword Arguments:
+            boxes {np.ndarray} -- list of bounding boxes of objects in the
+            image formatted as [xmin, ymin, xmax, ymax] (default: {None})
+            labels {np.ndarray} -- list of the corresponding classes of the
+            bounding boxes (default: {None})
+
+        Returns:
+            np.ndarray, np.ndarray, np.ndarray -- pixels of the image converted
+            to the output color space, list of bounding boxes of objects in the
+            image formatted as [xmin, ymin, xmax, ymax], list of the
+            corresponding classes of the bounding boxes
+        """
 
         if self.current == 'BGR' and self.transform == 'HSV':
             image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -247,10 +444,22 @@ class ConvertColor(object):
 
 
 class RandomContrast(object):
+    """This class adjusts the contrast of the image. This multiplies a random
+    constant to the pixel values of the image."""
 
     def __init__(self,
                  lower=0.5,
                  upper=1.5):
+        """Class constructor for RandomContrast
+
+        Keyword Arguments:
+            lower {int} -- lower bound of the interval used in generating
+            a random number from a uniform distribution to adjust contrast
+            (default: {0.5})
+            upper {number} -- upper bound of the interval used in generating
+            a random number from a uniform distribution to adjust contrast
+            (default: {1.5})
+        """
 
         super(RandomContrast, self).__init__()
         self.lower = lower
@@ -262,18 +471,46 @@ class RandomContrast(object):
                  image,
                  boxes=None,
                  labels=None):
+        """Executed when the class is called as a function
+
+        Arguments:
+            image {np.ndarray} -- image pixels represented as np.ndarray.
+
+        Keyword Arguments:
+            boxes {np.ndarray} -- list of bounding boxes of objects in the
+            image formatted as [xmin, ymin, xmax, ymax] (default: {None})
+            labels {np.ndarray} -- list of the corresponding classes of the
+            bounding boxes (default: {None})
+
+        Returns:
+            np.ndarray, np.ndarray, np.ndarray -- image pixels with adjusted
+            contrast, list of bounding boxes of objects in the image
+            formatted as [xmin, ymin, xmax, ymax], list of the corresponding
+            classes of the bounding boxes
+        """
 
         if random.randint(2):
             alpha = random.uniform(self.lower, self.upper)
+
+            # multiplies the random constant to the pixel values
             image *= alpha
 
         return image, boxes, labels
 
 
 class RandomBrightness(object):
+    """This class adjusts the brightness of the image. This adds a random
+    constant to the pixel values of the image."""
 
     def __init__(self,
                  delta=32.0):
+        """Class constructor for RandomBrightness
+
+        Keyword Arguments:
+            delta {int} -- lower bound and upper bound of the interval used
+            in generating a random number from a uniform distribution to adjust
+            brightness (default: {32.0})
+        """
 
         super(RandomBrightness, self).__init__()
         assert delta >= 0.0 and delta <= 255.0
@@ -283,17 +520,40 @@ class RandomBrightness(object):
                  image,
                  boxes=None,
                  labels=None):
+        """Executed when the class is called as a function
+
+        Arguments:
+            image {np.ndarray} -- image pixels represented as np.ndarray.
+
+        Keyword Arguments:
+            boxes {np.ndarray} -- list of bounding boxes of objects in the
+            image formatted as [xmin, ymin, xmax, ymax] (default: {None})
+            labels {np.ndarray} -- list of the corresponding classes of the
+            bounding boxes (default: {None})
+
+        Returns:
+            np.ndarray, np.ndarray, np.ndarray -- image pixels with adjusted
+            brightness, list of bounding boxes of objects in the image
+            formatted as [xmin, ymin, xmax, ymax], list of the corresponding
+            classes of the bounding boxes
+        """
 
         if random.randint(2):
-            delta = random.uniform(-self.data, self.delta)
+            delta = random.uniform(-self.delta, self.delta)
+
+            # adds the random constant to the pixel values
             image += delta
 
         return image, boxes, labels
 
 
 class ToCV2Image(object):
+    """This class converts the torch.Tensor representation of an image to
+    np.ndarray. The channels of the image are also converted from RGB to
+    BGR"""
 
     def __init__(self):
+        """Class constructor for ToCV2Image"""
 
         super(ToCV2Image, self).__init__()
 
@@ -301,14 +561,36 @@ class ToCV2Image(object):
                  image,
                  boxes=None,
                  labels=None):
+        """Executed when the class is called as a function
 
-        image = image.cpu().numpy().astype(np.float32).transpose((1, 2, 0))
+        Arguments:
+            image {torch.Tensor} -- image pixels represented as torch.Tensor.
+
+        Keyword Arguments:
+            boxes {np.ndarray} -- list of bounding boxes of objects in the
+            image formatted as [xmin, ymin, xmax, ymax] (default: {None})
+            labels {np.ndarray} -- list of the corresponding classes of the
+            bounding boxes (default: {None})
+
+        Returns:
+            np.ndarray, np.ndarray, np.ndarray -- image pixels represented
+            as np.ndarray, list of bounding boxes of objects in the image
+            formatted as [xmin, ymin, xmax, ymax], list of the corresponding
+            classes of the bounding boxes
+        """
+
+        # permute() is used to switch the channels from RGB to BGR
+        image = image.cpu().numpy().astype(np.float32).transpose((2, 1, 0))
         return image, boxes, labels
 
 
 class ToTensor(object):
+    """This class converts the np.ndarray representation of an image to
+    torch.Tensor. The channels of the image are also converted from BGR to
+    RGB"""
 
     def __init__(self):
+        """Class constructor for ToTensor"""
 
         super(ToTensor, self).__init__()
 
@@ -316,8 +598,26 @@ class ToTensor(object):
                  image,
                  boxes=None,
                  labels=None):
+        """Executed when the class is called as a function
 
-        image = torch.from_numpy(image.astype(np.float32)).permute(2, 0, 1)
+        Arguments:
+            image {np.ndarray} -- image pixels represented as np.ndarray.
+
+        Keyword Arguments:
+            boxes {np.ndarray} -- list of bounding boxes of objects in the
+            image formatted as [xmin, ymin, xmax, ymax] (default: {None})
+            labels {np.ndarray} -- list of the corresponding classes of the
+            bounding boxes (default: {None})
+
+        Returns:
+            torch.Tensor, np.ndarray, np.ndarray -- image pixels represented
+            as torch.Tensor, list of bounding boxes of objects in the image
+            formatted as [xmin, ymin, xmax, ymax], list of the corresponding
+            classes of the bounding boxes
+        """
+
+        # permute() is used to switch the channels from BGR to RGB
+        image = torch.from_numpy(image.astype(np.float32)).permute(2, 1, 0)
         return image, boxes, labels
 
 
@@ -437,44 +737,86 @@ class Expand(object):
 
 
 class RandomMirror(object):
+    """This class randomly flips the image horizontally. This also flips the
+    coordinate of the bounding boxes of the objects."""
 
     def __init__(self):
+        """Class constructor for RandomMirror"""
 
         super(RandomMirror, self).__init__()
 
     def __call__(self,
                  image,
-                 boxes,
-                 labels):
+                 boxes=None,
+                 labels=None):
+        """Executed when the class is called as a function
+
+        Arguments:
+            image {np.ndarray} -- image pixels represented as np.ndarray.
+
+        Keyword Arguments:
+            boxes {np.ndarray} -- list of bounding boxes of objects in the
+            image formatted as [xmin, ymin, xmax, ymax] (default: {None})
+            labels {np.ndarray} -- list of the corresponding classes of the
+            bounding boxes (default: {None})
+
+        Returns:
+            np.ndarray, np.ndarray, np.ndarray -- image pixels flipped
+            horizontally, list of bounding boxes of objects in the image
+            formatted as [xmin, ymin, xmax, ymax] and flipped horizontally,
+            list of the corresponding classes of the bounding boxes
+        """
 
         _, width, _ = image.shape
 
         if random.randint(2):
-            image = image[:, ::-1]
-            boxes = boxes.copy()
-            boxes[:, 0::2] = width - boxes[:, 2::-2]
+            image = image[:, ::-1, :]
+            if boxes is not None:
+                boxes = boxes.copy()
+
+                # flip the x coordinates of the bounding boxes
+                # using the width of the image
+                boxes[:, 0::2] = width - boxes[:, 2::-2]
 
         return image, boxes, labels
 
 
 class SwapChannels(object):
+    """This class swaps the channels of the image"""
 
     def __init__(self,
                  swaps):
+        """Class constructor for SwapChannels
+
+        Arguments:
+            swaps {tuple} -- new order of the channels
+        """
 
         super(SwapChannels, self).__init__()
         self.swaps = swaps
 
     def __call__(self,
                  image):
+        """Executed when the class is called as a function
+
+        Arguments:
+            image {np.ndarray} -- image pixels represented as np.ndarray.
+
+        Returns:
+            np.ndarray -- pixels of the image with swapped channels
+        """
 
         image = image[:, :, self.swaps]
         return image
 
 
 class PhotometricDistort(object):
+    """This class applies different transformation to the image. This includes
+    adjustment of contrast, saturation, hue, and brightness, and the
+    switching of channels."""
 
     def __init__(self):
+        """Class constructor for PhotometricDistort"""
 
         super(PhotometricDistort, self).__init__()
         self.pd = [RandomContrast(),
@@ -490,11 +832,32 @@ class PhotometricDistort(object):
                  image,
                  boxes,
                  labels):
+        """Executed when the class is called as a function
+
+        Arguments:
+            image {np.ndarray} -- image pixels represented as np.ndarray.
+
+        Keyword Arguments:
+            boxes {np.ndarray} -- list of bounding boxes of objects in the
+            image formatted as [xmin, ymin, xmax, ymax]
+            labels {np.ndarray} -- list of the corresponding classes of the
+            bounding boxes
+
+        Returns:
+            np.ndarray, np.ndarray, np.ndarray -- image pixels applied with
+            different random transformations, list of bounding boxes of
+            objects in the image formatted as [xmin, ymin, xmax, ymax],
+            list of the corresponding classes of the bounding boxes
+        """
 
         image = image.copy()
         image, boxes, labels = self.rand_brightness(image, boxes, labels)
+
+        # applies RandomContrast() as the first transformation
         if random.randint(2):
             distort = Compose(self.pd[:-1])
+
+        # applies RandomContrast() as the last transformation
         else:
             distort = Compose(self.pd[1:])
         image, boxes, labels = distort(image, boxes, labels)
@@ -503,10 +866,18 @@ class PhotometricDistort(object):
 
 
 class Augmentations(object):
+    """This class applies different augmentation techniques to the image.
+    This is used for training the model."""
 
     def __init__(self,
                  size,
                  mean):
+        """Class constructor for Augmentations
+
+        Arguments:
+            size {int} -- output size
+            mean {tuple} -- mean
+        """
 
         super(Augmentations, self).__init__()
         self.size = size
@@ -521,19 +892,45 @@ class Augmentations(object):
                                 Resize(self.size),
                                 SubtractMeans(self.mean)])
 
-        def __call__(self,
-                     image,
-                     boxes,
-                     labels):
+    def __call__(self,
+                 image,
+                 boxes,
+                 labels):
+        """Executed when the class is called as a function
 
-            return self.augment(image, boxes, labels)
+        Arguments:
+            image {np.ndarray} -- image pixels represented as np.ndarray.
+
+        Keyword Arguments:
+            boxes {np.ndarray} -- list of bounding boxes of objects in the
+            image formatted as [xmin, ymin, xmax, ymax]
+            labels {np.ndarray} -- list of the corresponding classes of the
+            bounding boxes
+
+        Returns:
+            np.ndarray, np.ndarray, np.ndarray -- image pixels applied with
+            different augmentation techniques, list of bounding boxes of
+            objects in the image formatted as [xmin, ymin, xmax, ymax],
+            list of the corresponding classes of the bounding boxes
+        """
+
+        return self.augment(image, boxes, labels)
 
 
 class BaseTransform(object):
+    """This class applies different base transformation techniques to the
+    image. This includes resizing the image and subtracting the mean from the
+    image pixels. This is used for testing the model."""
 
     def __init__(self,
                  size,
                  mean):
+        """Class constructor for BaseTransform
+
+        Arguments:
+            size {int} -- output size
+            mean {tuple} -- mean
+        """
 
         super(BaseTransform, self).__init__()
         self.size = size
@@ -543,6 +940,23 @@ class BaseTransform(object):
                  image,
                  boxes=None,
                  labels=None):
+        """Executed when the class is called as a function
+
+        Arguments:
+            image {np.ndarray} -- image pixels represented as np.ndarray.
+
+        Keyword Arguments:
+            boxes {np.ndarray} -- list of bounding boxes of objects in the
+            image formatted as [xmin, ymin, xmax, ymax] (default: {None})
+            labels {np.ndarray} -- list of the corresponding classes of the
+            bounding boxes (default: {None})
+
+        Returns:
+            np.ndarray, np.ndarray, np.ndarray -- image pixels applied with
+            different augmentation techniques, list of bounding boxes of
+            objects in the image formatted as [xmin, ymin, xmax, ymax],
+            list of the corresponding classes of the bounding boxes
+        """
 
         dimensions = (self.size, self.size)
         image = cv2.resize(image, dimensions).astype(np.float32)
