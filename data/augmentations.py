@@ -11,7 +11,7 @@ def intersect(box_a,
     min_xy = np.maximum(box_a[:, :2], box_b[:2])
     intersection = np.clip((max_xy - min_xy), a_min=0, a_max=np.inf)
 
-    return intersection[:, 0] * intersection[: 1]
+    return intersection[:, 0] * intersection[:, 1]
 
 
 def jaccard_numpy(box_a,
@@ -724,6 +724,7 @@ class RandomSampleCrop(object):
 
 
 class Expand(object):
+    """This class produces an image"""
 
     def __init__(self,
                  mean):
@@ -733,8 +734,8 @@ class Expand(object):
 
     def __call__(self,
                  image,
-                 boxes,
-                 labels):
+                 boxes=None,
+                 labels=None):
 
         if random.randint(2):
             height, width, channels = image.shape
@@ -753,9 +754,10 @@ class Expand(object):
             expand_image[y1:y2, x1:x2] = image
             image = expand_image
 
-            boxes = boxes.copy()
-            boxes[:, :2] += (x1, y1)
-            boxes[:, 2:] += (x1, y1)
+            if boxes is not None:
+                boxes = boxes.copy()
+                boxes[:, :2] += (x1, y1)
+                boxes[:, 2:] += (x1, y1)
 
         return image, boxes, labels
 

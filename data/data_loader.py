@@ -23,11 +23,8 @@ def detection_collate(batch):
 
 def get_loader(config):
 
-    train_dataset = None
-    test_dataset = None
-
-    train_loader = None
-    test_loader = None
+    dataset = None
+    data_loader = None
 
     batch_size = config.batch_size
     new_size = config.new_size
@@ -37,34 +34,35 @@ def get_loader(config):
         voc_config = VOC_CONFIG[config.voc_config]
         if config.mode == 'train' or config.mode == 'trainval':
             image_transform = Augmentations(new_size, means)
-            train_dataset = PascalVOC(data_path=config.voc_data_path,
-                                      image_sets=voc_config[0],
-                                      new_size=new_size,
-                                      mode='trainval',
-                                      image_transform=image_transform)
+            dataset = PascalVOC(data_path=config.voc_data_path,
+                                image_sets=voc_config[0],
+                                new_size=new_size,
+                                mode='trainval',
+                                image_transform=image_transform)
 
         elif config.mode == 'test':
             image_transform = BaseTransform(new_size, means)
-            test_dataset = PascalVOC(data_path=config.voc_data_path,
-                                     image_sets=voc_config[1],
-                                     new_size=new_size,
-                                     mode=config.mode,
-                                     image_transform=image_transform)
+            dataset = PascalVOC(data_path=config.voc_data_path,
+                                image_sets=voc_config[1],
+                                new_size=new_size,
+                                mode=config.mode,
+                                image_transform=image_transform)
 
-    if train_dataset is not None:
-        train_loader = DataLoader(dataset=train_dataset,
-                                  batch_size=batch_size,
-                                  shuffle=True,
-                                  collate_fn=detection_collate,
-                                  num_workers=4,
-                                  pin_memory=True)
+    if dataset is not None:
+        if config.mode == 'train':
+            data_loader = DataLoader(dataset=dataset,
+                                     batch_size=batch_size,
+                                     shuffle=True,
+                                     collate_fn=detection_collate,
+                                     num_workers=4,
+                                     pin_memory=True)
 
-    if test_dataset is not None:
-        test_loader = DataLoader(dataset=test_dataset,
-                                 batch_size=batch_size,
-                                 shuffle=False,
-                                 collate_fn=detection_collate,
-                                 num_workers=4,
-                                 pin_memory=True)
+        elif config.mode == 'test':
+            data_loader = DataLoader(dataset=dataset,
+                                     batch_size=batch_size,
+                                     shuffle=False,
+                                     collate_fn=detection_collate,
+                                     num_workers=4,
+                                     pin_memory=True)
 
-    return train_loader, test_loader
+    return data_loader
