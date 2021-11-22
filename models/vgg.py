@@ -2,16 +2,19 @@ import torch.nn as nn
 
 
 base_config = {
+
     '300': [64, 64, 'M',
             128, 128, 'M',
             256, 256, 256, 'C',
             512, 512, 512, 'M',
             512, 512, 512],
+
     '512': [64, 64, 'M',
             128, 128, 'M',
             256, 256, 256, 'C',
             512, 512, 512, 'M',
             512, 512, 512]
+
 }
 
 
@@ -76,11 +79,13 @@ class VGG(object):
         pool5 = nn.MaxPool2d(kernel_size=3,
                              stride=1,
                              padding=1)
+
         conv6 = nn.Conv2d(in_channels=512,
                           out_channels=1024,
                           kernel_size=3,
                           padding=6,
                           dilation=6)
+
         conv7 = nn.Conv2d(in_channels=1024,
                           out_channels=1024,
                           kernel_size=1)
