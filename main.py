@@ -128,7 +128,7 @@ if __name__ == '__main__':
                         help='List of epochs to reduce the learning rate')
     parser.add_argument('--sched_gamma', type=float, default=0.1,
                         help='Adjustment gamma for each learning sched')
-    parser.add_argument('--batch_size', type=int, default=64,
+    parser.add_argument('--batch_size', type=int, default=32,
                         help='Batch size')
 
     # architecture settings
@@ -137,8 +137,8 @@ if __name__ == '__main__':
                         help='Model to use')
     parser.add_argument('--basenet', type=str, default='vgg16_reducedfc.pth',
                         help='Base network for VGG')
-    parser.add_argument('--resnet_model', type=str, default='18',
-                        choices=['18', '34', '50', '101'],
+    parser.add_argument('--resnet_model', type=str, default='50',
+                        choices=['18', '34', '50', '101', '152'],
                         help='ResNet base network configuration')
     parser.add_argument('--pretrained_model', type=str,
                         default=None,
