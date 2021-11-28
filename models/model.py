@@ -1,5 +1,6 @@
 from models.sfdet_vgg import build_SFDetVGG
 from models.sfdet_resnet import build_SFDetResNet
+from models.sfdet_densenet import build_SFDetDenseNet
 
 
 def get_model(config, anchors):
@@ -21,5 +22,12 @@ def get_model(config, anchors):
                                   resnet_model=config['resnet_model'],
                                   anchors=anchors,
                                   class_count=config['class_count'])
+
+    elif config['model'] == 'SFDet-DenseNet':
+        model = build_SFDetDenseNet(mode=config['mode'],
+                                    new_size=config['new_size'],
+                                    densenet_model=config['densenet_model'],
+                                    anchors=anchors,
+                                    class_count=config['class_count'])
 
     return model

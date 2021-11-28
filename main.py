@@ -132,13 +132,17 @@ if __name__ == '__main__':
                         help='Batch size')
 
     # architecture settings
-    parser.add_argument('--model', type=str, default='SFDet-ResNet',
-                        choices=['SFDet-VGG', 'SFDet-ResNet'],
+    parser.add_argument('--model', type=str, default='SFDet-DenseNet',
+                        choices=['SFDet-VGG', 'SFDet-ResNet',
+                                 'SFDet-DenseNet'],
                         help='Model to use')
     parser.add_argument('--basenet', type=str, default='vgg16_reducedfc.pth',
                         help='Base network for VGG')
     parser.add_argument('--resnet_model', type=str, default='50',
                         choices=['18', '34', '50', '101', '152'],
+                        help='ResNet base network configuration')
+    parser.add_argument('--densenet_model', type=str, default='121',
+                        choices=['121', '169', '201'],
                         help='ResNet base network configuration')
     parser.add_argument('--pretrained_model', type=str,
                         default=None,
