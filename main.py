@@ -101,18 +101,25 @@ if __name__ == '__main__':
     # dataset info
     parser.add_argument('--input_channels', type=int, default=3,
                         help='Number of input channels')
-    parser.add_argument('--class_count', type=int, default=21,
+    parser.add_argument('--class_count', type=int, default=81,
                         help='Number of classes in dataset')
-    parser.add_argument('--dataset', type=str, default='voc',
-                        choices=['voc'],
+    parser.add_argument('--dataset', type=str, default='coco',
+                        choices=['voc', 'coco'],
                         help='Dataset to use')
     parser.add_argument('--new_size', type=int, default=300,
                         help='New height and width of input images')
     parser.add_argument('--means', type=tuple, default=(104, 117, 123),
                         help='Mean values of the dataset')
     parser.add_argument('--anchor_config', type=str, default='SFDet-300',
-                        choices=['SFDet-300', 'SFDet-512'],
+                        choices=['SSD-300', 'SSD-512',
+                                 'RSSD-300'
+                                 'STDN-300',
+                                 'SFDet-300', 'SFDet-512'],
                         help='Anchor box configuration to use')
+    parser.add_argument('--scale_initial', type=float, default=0.07,
+                        help='Initial scale of anchor boxes')
+    parser.add_argument('--scale_min', type=int, default=0.15,
+                        help='Minimum scale of anchor boxes in generation')
 
     # training settings
     parser.add_argument('--lr', type=float, default=0.001,
@@ -121,29 +128,35 @@ if __name__ == '__main__':
                         help='Momentum')
     parser.add_argument('--weight_decay', type=float, default=0.0005,
                         help='Weight decay')
-    parser.add_argument('--num_epochs', type=int, default=220,
+    parser.add_argument('--num_epochs', type=int, default=100,
                         help='Number of epochs')
     # 145, 182, 218 -> 160, 190, 220
-    parser.add_argument('--learning_sched', type=list, default=[160, 190],
+    parser.add_argument('--learning_sched', type=list, default=[],
                         help='List of epochs to reduce the learning rate')
     parser.add_argument('--sched_gamma', type=float, default=0.1,
                         help='Adjustment gamma for each learning sched')
     parser.add_argument('--batch_size', type=int, default=32,
                         help='Batch size')
+    parser.add_argument('--batch_multiplier', type=int, default=1,
+                        help='Batch size multiplier')
 
     # architecture settings
-    parser.add_argument('--model', type=str, default='SFDet-DenseNet',
+    parser.add_argument('--model', type=str, default='SFDet-ResNet',
                         choices=['SFDet-VGG', 'SFDet-ResNet',
-                                 'SFDet-DenseNet'],
+                                 'SFDet-DenseNet', 'SFDet-ResNeXt',
+                                 'SSD', 'RSSD_1C', 'RSSD', 'STDN', 'STDN2'],
                         help='Model to use')
     parser.add_argument('--basenet', type=str, default='vgg16_reducedfc.pth',
                         help='Base network for VGG')
-    parser.add_argument('--resnet_model', type=str, default='50',
+    parser.add_argument('--resnet_model', type=str, default='18',
                         choices=['18', '34', '50', '101', '152'],
                         help='ResNet base network configuration')
     parser.add_argument('--densenet_model', type=str, default='121',
                         choices=['121', '169', '201'],
-                        help='ResNet base network configuration')
+                        help='DenseNet base network configuration')
+    parser.add_argument('--resnext_model', type=str, default='50_32x4d',
+                        choices=['50_32x4d', '101_32x8d'],
+                        help='ResNeXt base network configuration')
     parser.add_argument('--pretrained_model', type=str,
                         default=None,
                         help='Pre-trained model')
@@ -152,8 +165,6 @@ if __name__ == '__main__':
     parser.add_argument('--loss_config', type=str, default='multibox',
                         choices=['multibox'],
                         help='Type of loss')
-    parser.add_argument('--iou_threshold', type=float, default=0.5,
-                        help='IoU threshold')
     parser.add_argument('--pos_neg_ratio', type=int, default=3,
                         help='Ratio for hard negative mining')
 
@@ -165,10 +176,14 @@ if __name__ == '__main__':
                         help='Toggles the use of GPU')
 
     # testing settings
-    parser.add_argument('--max_per_image', type=int, default=300,
+    parser.add_argument('--max_per_image', type=int, default=50,
                         help='Maximum number of detection per image')
     parser.add_argument('--score_threshold', type=float, default=0.01,
                         help='Score threshold for detections')
+    parser.add_argument('--nms_threshold', type=float, default=0.5,
+                        help='NMS threshold for detections')
+    parser.add_argument('--iou_threshold', type=float, default=0.5,
+                        help='IOU threshold for detections')
 
     # pascal voc dataset
     parser.add_argument('--voc_config', type=str, default='0712',
@@ -182,11 +197,11 @@ if __name__ == '__main__':
                         help='Toggles the VOC2007 11-point metric')
 
     # coco dataset
-    parser.add_argument('--coco_config', type=str, default='2014',
-                        choices=['2014', '2017'],
+    parser.add_argument('--coco_year', type=str, default='2017',
+                        choices=['2017'],
                         help='COCO dataset configuration')
     parser.add_argument('--coco_data_path', type=str,
-                        default='../../data/Coco/',
+                        default='../../Datasets/Coco/',
                         help='COCO dataset path')
 
     # path
@@ -194,11 +209,13 @@ if __name__ == '__main__':
                         help='Path for saving weights')
     parser.add_argument('--model_test_path', type=str, default='./tests',
                         help='Path for saving results')
+    parser.add_argument('--model_eval_path', type=str, default='./eval',
+                        help='Path for saving results')
 
     # epoch step size
     parser.add_argument('--loss_log_step', type=int, default=1,
                         help='Number of steps for logging loss')
-    parser.add_argument('--model_save_step', type=int, default=4,
+    parser.add_argument('--model_save_step', type=int, default=5,
                         help='Number of step for saving model')
 
     config = parser.parse_args()
