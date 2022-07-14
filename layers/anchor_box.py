@@ -3,12 +3,19 @@ from math import sqrt
 
 
 anchors_config = {
-    'SSD': [[8, 16, 32, 64, 100, 300],
-            [38, 19, 10, 5, 3, 1],
-            [[2], [2, 3], [2, 3], [2, 3], [2], [2]]],
+    'SSD-300': [[8, 16, 32, 64, 100, 300],
+                [38, 19, 10, 5, 3, 1],
+                [[2], [2, 3], [2, 3], [2, 3], [2], [2]]],
     'SSD-512': [[8, 16, 32, 64, 128, 256, 512],
                 [64, 32, 16, 8, 4, 2, 1],
                 [[2], [2, 3], [2, 3], [2, 3], [2, 3], [2], [2]]],
+    'RSSD-300': [[8, 16, 32, 64, 100, 300],
+                 [38, 19, 10, 5, 3, 1],
+                 [[2, 3], [2, 3], [2, 3], [2, 3], [2, 3], [2, 3]]],
+    'STDN-300': [[8, 16, 32, 64, 100, 300],  # change this
+                 [36, 18, 9, 5, 3, 1],
+                 [[1.6, 2, 3], [1.6, 2, 3], [1.6, 2, 3], [1.6, 2, 3],
+                  [1.6, 2, 3], [1.6, 2, 3]]],
     'SFDet-300': [[8, 16, 32, 64, 100, 300],
                   [36, 18, 9, 5, 3, 1],
                   [[2, 3], [2, 3], [2, 3], [2, 3], [2], [2]]],
@@ -23,7 +30,9 @@ class AnchorBox(object):
 
     def __init__(self,
                  new_size,
-                 config):
+                 config,
+                 scale_initial,
+                 scale_min):
         """Class constructor for AnchorBox
 
         Arguments:
@@ -41,9 +50,11 @@ class AnchorBox(object):
         self.map_sizes = anchors_config[config][1]
         self.aspect_ratios = anchors_config[config][2]
 
-        self.scales = self.get_scales()
+        self.scales = self.get_scales(scale_initial=scale_initial,
+                                      scale_min=scale_min)
 
     def get_scales(self,
+                   scale_initial=0.1,
                    scale_min=0.2,
                    scale_max=1.05):
         """Computes the scales used in the computation of anchor boxes
@@ -56,7 +67,7 @@ class AnchorBox(object):
             list -- contains the scales
         """
 
-        scales = [0.1]
+        scales = [scale_initial]
         num_map_sizes = len(self.map_sizes)
         scale_diff = scale_max - scale_min
 
@@ -101,3 +112,8 @@ class AnchorBox(object):
         output = torch.Tensor(boxes).view(-1, 4)
         output.clamp_(max=1, min=0)
         return output
+
+
+# if __name__ == '__main__':
+#     a = AnchorBox(new_size=300, config='SSD-300')
+#     print(a.get_scales())
