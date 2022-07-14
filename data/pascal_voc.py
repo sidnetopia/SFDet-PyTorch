@@ -357,7 +357,7 @@ def voc_eval(detection_path,
              class_name,
              cache_dir,
              output_txt,
-             overlap_threshold=0.5,
+             iou_threshold=0.5,
              use_07_metric=True):
 
     # create or get the cache_file
@@ -464,7 +464,7 @@ def voc_eval(detection_path,
                 j_max = np.argmax(iou)
 
             # if the maximum overlap is over the overlap threshold
-            if overlap_max > overlap_threshold:
+            if overlap_max > iou_threshold:
                 # if it is not difficult
                 if not image_target['difficult'][j_max]:
                     # if it is not yet detected, count as a true positive
@@ -502,18 +502,19 @@ def do_python_eval(results_path,
                    dataset,
                    output_txt,
                    mode,
+                   iou_threshold,
                    use_07_metric):
 
     # annotation cache directory
     cache_dir = osp.join(results_path,
                          'annotations_cache')
 
+    # path to XML annotation folder
+    annotation_path = dataset.annotation_path
+
     # path to VOC + year
     path = osp.join(dataset.data_path,
                     'VOC{}'.format(dataset.image_sets[0][0]))
-
-    # path to XML annotation folder
-    annotation_path = dataset.annotation_path
 
     # text file containing the list of (test) images
     list_path = dataset.text_path.format(path, mode, mode)
@@ -533,7 +534,7 @@ def do_python_eval(results_path,
                                          class_name=class_name,
                                          cache_dir=cache_dir,
                                          output_txt=output_txt,
-                                         overlap_threshold=0.5,
+                                         iou_threshold=iou_threshold,
                                          use_07_metric=use_07_metric)
         aps += [ap]
 

@@ -650,12 +650,7 @@ class RandomSampleCrop(object):
     def __init__(self):
 
         super(RandomSampleCrop, self).__init__()
-        self.sample_options = (None,
-                               (0.1, None),
-                               (0.3, None),
-                               (0.7, None),
-                               (0.9, None),
-                               (None, None))
+        self.sample_options = [0.1, 0.3, 0.7, 0.9, None]
 
     def __call__(self,
                  image,
@@ -665,62 +660,62 @@ class RandomSampleCrop(object):
         height, width, _ = image.shape
 
         while True:
-            mode = random.choice(self.sample_options)
+            mode = random.choice([0, 1])
 
-            if mode is None:
+            if mode == 0:
                 return image, boxes, labels
 
-            min_iou, max_iou = mode
-            if min_iou is None:
-                min_iou = float('-inf')
-            if max_iou is None:
+            else:
+                min_iou = random.choice(self.sample_options)
+                if min_iou is None:
+                    min_iou = float('-inf')
                 max_iou = float('inf')
 
-            for _ in range(50):
-                current_image = image
+                for _ in range(50):
+                    current_image = image
 
-                w = random.uniform(0.3 * width, width)
-                h = random.uniform(0.3 * height, height)
+                    w = random.uniform(0.3 * width, width)
+                    h = random.uniform(0.3 * height, height)
 
-                if h / w < 0.5 or h / w > 2:
-                    continue
+                    if h / w < 0.5 or h / w > 2:
+                        continue
 
-                left = random.uniform(width - w)
-                top = random.uniform(height - h)
+                    left = random.uniform(width - w)
+                    top = random.uniform(height - h)
 
-                x1 = int(left)
-                y1 = int(top)
-                x2 = int(left + w)
-                y2 = int(top + h)
-                crop = np.array([x1, y1, x2, y2])
+                    x1 = int(left)
+                    y1 = int(top)
+                    x2 = int(left + w)
+                    y2 = int(top + h)
+                    crop = np.array([x1, y1, x2, y2])
 
-                overlap = jaccard_numpy(boxes, crop)
+                    overlap = jaccard_numpy(boxes, crop)
 
-                if overlap.min() < min_iou and max_iou < overlap.max():
-                    continue
+                    if overlap.min() < min_iou and max_iou < overlap.max():
+                        continue
 
-                current_image = current_image[y1:y2, x1:x2, :]
-                centers = (boxes[:, :2] + boxes[:, 2:]) / 2.0
+                    current_image = current_image[y1:y2, x1:x2, :]
+                    centers = (boxes[:, :2] + boxes[:, 2:]) / 2.0
 
-                m1 = (x1 < centers[:, 0]) * (y1 < centers[:, 1])
-                m2 = (x2 > centers[:, 0]) * (y2 > centers[:, 1])
-                mask = m1 * m2
+                    m1 = (x1 < centers[:, 0]) * (y1 < centers[:, 1])
+                    m2 = (x2 > centers[:, 0]) * (y2 > centers[:, 1])
+                    mask = m1 * m2
 
-                if not mask.any():
-                    continue
+                    if not mask.any():
+                        continue
 
-                current_boxes = boxes[mask, :].copy()
-                current_labels = labels[mask]
+                    current_boxes = boxes[mask, :].copy()
+                    current_labels = labels[mask]
 
-                current_boxes[:, :2] = np.maximum(current_boxes[:, :2],
-                                                  crop[:2])
-                current_boxes[:, :2] -= crop[:2]
+                    current_boxes[:, :2] = np.maximum(current_boxes[:, :2],
+                                                      crop[:2])
+                    current_boxes[:, :2] -= crop[:2]
 
-                current_boxes[:, 2:] = np.minimum(current_boxes[:, 2:],
-                                                  crop[2:])
-                current_boxes[:, 2:] -= crop[:2]
+                    current_boxes[:, 2:] = np.minimum(current_boxes[:, 2:],
+                                                      crop[2:])
+                    current_boxes[:, 2:] -= crop[:2]
 
-                return current_image, current_boxes, current_labels
+                    return current_image, current_boxes, current_labels
 
 
 class Expand(object):
