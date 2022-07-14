@@ -5,7 +5,7 @@ import os.path as osp
 from layers.block import BasicConv
 from utils.init import xavier_init
 from layers.detection import Detect
-from models.vgg import VGG, base_config
+from backbone.vgg import VGG, base_config
 
 
 class SFDetVGG(nn.Module):
