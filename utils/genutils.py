@@ -1,3 +1,4 @@
+import cv2
 import os
 import torch
 
@@ -25,3 +26,53 @@ def write_print(path, text):
     file.write(text + '\n')
     file.close()
     print(text)
+
+
+def draw_bbox(image,
+              start_point,
+              end_point,
+              color,
+              thickness):
+
+    image = cv2.rectangle(image,
+                          start_point,
+                          end_point,
+                          color,
+                          thickness)
+    return image
+
+
+def draw_labels(image,
+                labels,
+                dictionary,
+                is_prediction=False):
+
+    if is_prediction:
+        thickness = 1
+    else:
+        thickness = 3
+
+    for label in labels:
+        start_point = (int(label[0]), int(label[1]))
+        end_point = (int(label[2]), int(label[3]))
+
+        image = cv2.rectangle(image,
+                              start_point,
+                              end_point,
+                              (255, 255, 255),
+                              thickness)
+
+        text = label[4]
+
+        if not is_prediction:
+            text = dictionary[int(label[4])]
+
+        image = cv2.putText(image,
+                            text,
+                            (int(label[0]), int(label[1] - 10)),
+                            cv2.FONT_HERSHEY_DUPLEX,
+                            0.7,
+                            color=(255, 255, 255),
+                            thickness=2)
+
+    return image
