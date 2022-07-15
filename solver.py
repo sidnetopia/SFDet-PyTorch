@@ -7,19 +7,19 @@ import numpy as np
 from tqdm import tqdm
 import os.path as osp
 import torch.optim as optim
-from utils.nms_wrapper import nms
-# from torchvision.ops import nms
-from utils.genutils import to_var, write_print
+# from utils.nms_wrapper import nms
+from torchvision.ops import nms
 from torch.cuda.amp import GradScaler, autocast
+from utils.genutils import to_var, write_print, mkdir
 
 from utils.timer import Timer
 from loss.loss import get_loss
 from models.model import get_model
 from layers.anchor_box import AnchorBox
-from data.pascal_voc import save_results as voc_save, do_python_eval
-
-
-# from data.pascal_voc import save_results as voc_save, do_python_eval
+from data.coco import save_results as coco_save
+from data.pascal_voc import save_results as voc_save
+from data.pascal_voc import do_python_eval as do_voc_eval
+from pycocotools.cocoeval import COCOeval as do_coco_eval
 
 
 class Solver(object):
@@ -58,7 +58,9 @@ class Solver(object):
 
         # instantiate anchor boxes
         anchor_boxes = AnchorBox(new_size=self.new_size,
-                                 config=self.anchor_config)
+                                 config=self.anchor_config,
+                                 scale_initial=self.scale_initial,
+                                 scale_min=self.scale_min)
         self.anchor_boxes = anchor_boxes.get_boxes()
 
         if torch.cuda.is_available() and self.use_gpu:
@@ -172,20 +174,29 @@ class Solver(object):
 
         torch.save(self.model.state_dict(), path)
 
-    def model_step(self,
-                   images,
-                   targets):
+
+    # def model_step(self,
+    #                images,
+    #                targets,
+    #                count):
         """
         A step for each iteration
         """
 
-        with autocast():
-
-            # set model in training mode
-            self.model.train()
+        """
+        if count == 0:
+            # update parameters
+            # self.optimizer.step()
+            self.scaler.step(self.optimizer)
 
             # empty the gradients of the model through the optimizer
             self.optimizer.zero_grad()
+
+            self.scaler.update()
+
+            count = self.batch_multiplier
+
+        with autocast():
 
             # forward pass
             class_preds, loc_preds = self.model(images)
@@ -201,18 +212,57 @@ class Solver(object):
 
             class_loss, loc_loss, loss = losses
 
-            # compute gradients using back propagation
-            # loss.backward()
-            self.scaler.scale(loss).backward()
-
-            # update parameters
-            # self.optimizer.step()
-            self.scaler.step(self.optimizer)
-
-            self.scaler.update()
+        # compute gradients using back propagation
+        # loss.backward()
+        class_loss = class_loss / self.batch_multiplier
+        loc_loss = loc_loss / self.batch_multiplier
+        loss = loss / self.batch_multiplier
+        self.scaler.scale(loss).backward()
+        count = count - 1
 
         # return loss
-        return class_loss, loc_loss, loss
+        return class_loss, loc_loss, loss, count
+    """
+
+    def model_step(self,
+                   images,
+                   targets,
+                   count):
+        """
+        # A step for each iteration
+        """
+
+        # empty the gradients of the model through the optimizer
+        self.optimizer.zero_grad()
+
+        with autocast():
+
+            # forward pass
+            class_preds, loc_preds = self.model(images)
+
+            # compute loss
+            class_targets = [target[:, -1] for target in targets]
+            loc_targets = [target[:, :-1] for target in targets]
+            losses = self.criterion(class_preds=class_preds,
+                                    class_targets=class_targets,
+                                    loc_preds=loc_preds,
+                                    loc_targets=loc_targets,
+                                    anchors=self.anchor_boxes)
+
+            class_loss, loc_loss, loss = losses
+
+        # compute gradients using back propagation
+        # loss.backward()
+        self.scaler.scale(loss).backward()
+
+        # update parameters
+        # self.optimizer.step()
+        self.scaler.step(self.optimizer)
+
+        self.scaler.update()
+
+        # return loss
+        return class_loss, loc_loss, loss, count
 
     def train(self):
         """
@@ -223,6 +273,7 @@ class Solver(object):
         self.model.train()
 
         self.losses = []
+        count = self.batch_multiplier
 
         iters_per_epoch = len(self.data_loader)
 
@@ -241,7 +292,9 @@ class Solver(object):
                 images = to_var(images, self.use_gpu)
                 targets = [to_var(target, self.use_gpu) for target in targets]
 
-                class_loss, loc_loss, loss = self.model_step(images, targets)
+                class_loss, loc_loss, loss, count = self.model_step(images,
+                                                                    targets,
+                                                                    count)
 
             # print out loss log
             if (e + 1) % self.loss_log_step == 0:
@@ -290,8 +343,10 @@ class Solver(object):
 
         # prepare timers, paths, and files
         timer = {'detection': Timer(), 'nms': Timer()}
+
         results_path = osp.join(self.model_test_path,
                                 self.pretrained_model)
+        mkdir(results_path)
         detection_file = osp.join(results_path,
                                   'detections.pkl')
 
@@ -316,11 +371,12 @@ class Solver(object):
                 # convert to CPU tensors
                 bboxes = bboxes[0]
                 scores = scores[0]
-                bboxes = bboxes.cpu().numpy()
-                scores = scores.cpu().numpy()
+                # bboxes = bboxes.cpu().numpy()
+                # scores = scores.cpu().numpy()
 
                 # scale each detection back up to the image
-                scale = torch.Tensor([w, h, w, h]).cpu().numpy()
+                # scale = torch.Tensor([w, h, w, h]).cpu().numpy()
+                scale = torch.Tensor([w, h, w, h])
                 bboxes *= scale
 
                 # perform and time NMS
@@ -331,29 +387,29 @@ class Solver(object):
                     # get scores greater than score_threshold
                     selected_i = np.where(scores[:, j] > score_threshold)[0]
 
-                    # if there are scores greather than score_threshold
+                    # if there are scores greater than score_threshold
                     if len(selected_i) > 0:
                         bboxes_i = bboxes[selected_i]
                         scores_i = scores[selected_i, j]
                         detections_i = (bboxes_i, scores_i[:, np.newaxis])
                         detections_i = np.hstack(detections_i)
-                        detections_i = detections_i.astype(np.float32,
-                                                           copy=False)
+                        # detections_i = detections_i.astype(np.float32,
+                        #                                    copy=False)
 
-                        keep = nms(detections=detections_i,
-                                   threshold=0.45,
-                                   force_cpu=True)
-
-                        # keep = nms(boxes=bboxes_i,
-                        #            scores=scores_i,
-                        #            iou_threshold=0.45)
+                        # keep = nms(detections=detections_i,
+                        #            threshold=self.nms_threshold,
+                        #            force_cpu=True)
+                        # print(type(bboxes_i), type(scores_io: object))
+                        keep = nms(boxes=bboxes_i,
+                                   scores=scores_i,
+                                   iou_threshold=self.nms_threshold)
 
                         keep = keep[:50]
                         detections_i = detections_i[keep, :]
-                        # if len(detections_i.shape) == 1:
-                        #     all_boxes[j][i] = np.expand_dims(detections_i, 0)
-                        # else:
-                        all_boxes[j][i] = detections_i
+                        if len(detections_i.shape) == 1:
+                            all_boxes[j][i] = np.expand_dims(detections_i, 0)
+                        else:
+                            all_boxes[j][i] = detections_i
 
                     elif len(selected_i) == 0:
                         all_boxes[j][i] = np.empty([0, 5], dtype=np.float32)
@@ -395,33 +451,61 @@ class Solver(object):
 
         # perform evaluation
         if self.dataset == 'voc':
-
             voc_save(all_boxes=all_boxes,
                      dataset=dataset,
                      results_path=results_path,
                      output_txt=self.output_txt)
 
-            aps, mAP = do_python_eval(results_path=results_path,
-                                      dataset=dataset,
-                                      output_txt=self.output_txt,
-                                      mode='test',
-                                      use_07_metric=self.use_07_metric)
+            aps, mAP = do_voc_eval(results_path=results_path,
+                                   dataset=dataset,
+                                   output_txt=self.output_txt,
+                                   mode='test',
+                                   iou_threshold=self.iou_threshold,
+                                   use_07_metric=self.use_07_metric)
+
+            write_print(self.output_txt, '\nResults:')
+            for ap in aps:
+                write_print(self.output_txt, '{:.4f}'.format(ap))
+            write_print(self.output_txt, '{:.4f}'.format(np.mean(aps)))
+
+        if self.dataset == 'coco':
+            detection_list = coco_save(all_boxes=all_boxes,
+                                       dataset=dataset,
+                                       results_path=results_path,
+                                       output_txt=self.output_txt)
+
+            detection_list = dataset.pycoco.loadRes(detection_list)
+            coco_eval = do_coco_eval(dataset.pycoco,
+                                     detection_list,
+                                     'bbox')
+            coco_eval.evaluate()
+            coco_eval.accumulate()
+            coco_eval.summarize()
+
+            stats = ['AP--IoU=0.50:0.95--all--100',
+                     'AP--IoU=0.50--all--100',
+                     'AP--IoU=0.75--all-100',
+                     'AP--IoU=0.50:0.95--small--100',
+                     'AP--IoU=0.50:0.95--medium--100',
+                     'AP--IoU=0.50:0.95--large--100',
+                     'AR--IoU=0.50:0.95--all--1',
+                     'AR--IoU=0.50:0.95--all--10',
+                     'AR--IoU=0.50:0.95--all--100',
+                     'AR--IoU=0.50:0.95--small--100',
+                     'AR--IoU=0.50:0.95--medium--100',
+                     'AR--IoU=0.50:0.95--large--100']
+
+            for stat, val in zip(stats, coco_eval.stats):
+                str_out = '{:s}: {:.3f}'.format(stat, val)
+                write_print(self.output_txt, str_out)
+
+            write_print(self.output_txt, '\nResults:')
+            for val in coco_eval.stats:
+                write_print(self.output_txt, '{:.3f}'.format(val))
 
         detect_times = np.asarray(detect_times)
         nms_times = np.asarray(nms_times)
         total_times = np.add(detect_times, nms_times)
-
-        write_print(self.output_txt,
-                    '\nfps[all]: ' + str(1 / np.mean(detect_times[1:])))
-        write_print(self.output_txt,
-                    'fps[all]:' + str(1 / np.mean(nms_times[1:])))
-        write_print(self.output_txt,
-                    'fps[all]:' + str(1 / np.mean(total_times[1:])))
-
-        write_print(self.output_txt, '\nResults:')
-        for ap in aps:
-            write_print(self.output_txt, '{:.4f}'.format(ap))
-        write_print(self.output_txt, '{:.4f}'.format(np.mean(aps)))
         write_print(self.output_txt, str(1 / np.mean(detect_times[1:])))
         write_print(self.output_txt, str(1 / np.mean(nms_times[1:])))
         write_print(self.output_txt, str(1 / np.mean(total_times[1:])))
