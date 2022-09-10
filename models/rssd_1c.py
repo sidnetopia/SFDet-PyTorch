@@ -170,8 +170,7 @@ def build_RSSD_1C(mode,
                   anchors,
                   class_count):
 
-    base = vgg16_bn(pretrained=True,
-                    progress=True)
+    base = vgg16_bn(weights='IMAGENET1K_V1')
     base = [x for x in base.features]
     base[23] = nn.MaxPool2d(kernel_size=2,
                             stride=2,
