@@ -7,13 +7,11 @@ import os.path as osp
 import xml.etree.ElementTree as ET
 from torch.utils.data import Dataset
 from utils.genutils import write_print
+import glob
+from pathlib import Path
 
-
-VOC_CLASSES = ('aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus',
-               'car', 'cat', 'chair', 'cow', 'diningtable', 'dog', 'horse',
-               'motorbike', 'person', 'pottedplant', 'sheep', 'sofa',
-               'train', 'tvmonitor')
-
+VOC_CLASSES = ('phone', 'drink', 'cigarette', 'steering wheel', 'operational device', 'hand l',
+               'hand r', 'head')
 
 class VOCAnnotationTransform(object):
     """This class converts the data from Annotation XML files to a list
@@ -68,7 +66,7 @@ class VOCAnnotationTransform(object):
         return labels
 
 
-class PascalVOC(Dataset):
+class Mmmdad(Dataset):
     """PascalVOC dataset
 
     Extends:
@@ -77,7 +75,6 @@ class PascalVOC(Dataset):
 
     def __init__(self,
                  data_path,
-                 image_sets,
                  new_size,
                  mode,
                  image_transform,
@@ -87,7 +84,6 @@ class PascalVOC(Dataset):
 
         Arguments:
             data_path {string} -- path to the dataset
-            image_sets {tuple} -- contains the year and the subset - either
             trainval or test
             new_size {int} -- new height and width of the image
             mode {string} -- experiment mode - either train or test
@@ -103,39 +99,28 @@ class PascalVOC(Dataset):
             difficult examples (default: {False})
         """
 
-        super(PascalVOC, self).__init__()
+        super(Mmmdad, self).__init__()
 
         self.data_path = data_path
-        self.image_sets = image_sets
         self.new_size = new_size
         self.mode = mode
         self.image_transform = image_transform
         self.target_transform = target_transform
         self.keep_difficult = keep_difficult
 
-        self.annotation_path = osp.join('{}',
-                                        '{}',
-                                        'Annotations',
-                                        '{}.xml')
-        self.image_path = osp.join('{}',
-                                   '{}',
-                                   'JPegImages',
-                                   '{}.jpg')
+        self.base_path = osp.join(self.data_path, self.mode)
+        self.annotation_path = osp.join(self.base_path,
+                                        'labels',
+                                        '{}.xml' # id
+                                        )
+        self.image_path = osp.join(self.base_path,
+                                   'data',
+                                   '{}.jpg'  # id
+                                   )
 
-        self.text_path = osp.join('{}', # path
-                                  '{}', # name
-                                  'ImageSets',
-                                  'Main',
-                                  '{}.txt' # id
-                                 )
+        ids = glob.glob(self.annotation_path.format('*'))
 
-        self.ids = []
-        for(year, name) in self.image_sets:
-            version = 'VOC{}'.format(year)
-            path = osp.join(self.data_path, version)
-            with open(self.text_path.format(path, name, name)) as f:
-                for line in f:
-                    self.ids.append((path, name, line.strip()))
+        self.ids = [Path(id).stem for id in ids]
 
     def __len__(self):
         """Returns the number of images in the dataset
@@ -182,8 +167,8 @@ class PascalVOC(Dataset):
 
         image_id = self.ids[index]
 
-        target_path = self.annotation_path.format(*image_id)
-        image_path = self.image_path.format(*image_id)
+        target_path = self.annotation_path.format(image_id)
+        image_path = self.image_path.format(image_id)
 
         target = ET.parse(target_path).getroot()
         image = cv2.imread(image_path)
@@ -217,7 +202,7 @@ class PascalVOC(Dataset):
         """
 
         image_id = self.ids[index]
-        image_path = self.image_path.format(*image_id)
+        image_path = self.image_path.format(image_id)
         return cv2.imread(image_path, cv2.IMREAD_COLOR)
 
     def pull_annotation(self,
@@ -236,11 +221,11 @@ class PascalVOC(Dataset):
         """
 
         image_id = self.ids[index]
-        target_path = self.annotation_path.format(*image_id)
+        target_path = self.annotation_path.format(image_id)
         target = ET.parse(target_path).getroot()
         target = self.target_transform(target, 1, 1)
 
-        return image_id[2], target
+        return image_id, target
 
     def pull_tensor(self,
                     index):
@@ -283,7 +268,7 @@ def save_results(all_boxes,
                         output = '{:s} {:.3f} {:.1f} {:.1f} {:.1f} {:.1f}\n'
 
                         # the VOCdevkit expects 1-based indices
-                        output = output.format(image_id[2],
+                        output = output.format(image_id,
                                                detections[k, -1],
                                                detections[k, 0] + 1,
                                                detections[k, 1] + 1,
@@ -352,9 +337,7 @@ def voc_ap(recall,
 
 
 def voc_eval(detection_path,
-             path,
              annotation_path,
-             list_path,
              class_name,
              cache_dir,
              output_txt,
@@ -367,9 +350,9 @@ def voc_eval(detection_path,
     cache_file = osp.join(cache_dir, 'annotations.pkl')
 
     # read list of images
-    with open(list_path, 'r') as f:
-        lines = f.readlines()
-    image_names = [x.strip() for x in lines]
+
+    filepaths = glob.glob(annotation_path.format('*'))
+    image_names = [Path(filepath).stem for filepath in filepaths]
 
     # if cache_file does not exists
     if not osp.isfile(cache_file):
@@ -378,7 +361,7 @@ def voc_eval(detection_path,
         # per image, read annotations from XML file
         write_print(output_txt, 'Reading annotations')
         for i, image_name in enumerate(image_names):
-            temp_path = annotation_path.format(path, 'test', image_name)
+            temp_path = annotation_path.format(image_name)
             targets[image_name] = parse_annotation(temp_path)
 
         # save annotations to cache_file
@@ -502,7 +485,6 @@ def voc_eval(detection_path,
 def do_python_eval(results_path,
                    dataset,
                    output_txt,
-                   mode,
                    iou_threshold,
                    use_07_metric):
 
@@ -513,13 +495,6 @@ def do_python_eval(results_path,
     # path to XML annotation folder
     annotation_path = dataset.annotation_path
 
-    # path to VOC + year
-    path = osp.join(dataset.data_path,
-                    'VOC{}'.format(dataset.image_sets[0][0]))
-
-    # text file containing the list of (test) images
-    list_path = dataset.text_path.format(path, mode, mode)
-
     # The PASCAL VOC metric changed in 2010
     write_print(output_txt, '\nVOC07 metric? '
                 + ('Yes\n' if use_07_metric else 'No\n'))
@@ -529,9 +504,7 @@ def do_python_eval(results_path,
     for class_name in VOC_CLASSES:
         detection_path = osp.join(results_path, class_name + '.txt')
         recall, precision, ap = voc_eval(detection_path=detection_path,
-                                         path=path,
                                          annotation_path=annotation_path,
-                                         list_path=list_path,
                                          class_name=class_name,
                                          cache_dir=cache_dir,
                                          output_txt=output_txt,

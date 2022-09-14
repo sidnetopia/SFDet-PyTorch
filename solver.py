@@ -19,6 +19,8 @@ from layers.anchor_box import AnchorBox
 from data.coco import save_results as coco_save
 from data.pascal_voc import save_results as voc_save
 from data.pascal_voc import do_python_eval as do_voc_eval
+from data.mmmdad import save_results as mmmdad_save
+from data.mmmdad import do_python_eval as do_mmmdad_eval
 from pycocotools.cocoeval import COCOeval as do_coco_eval
 
 
@@ -296,7 +298,14 @@ class Solver(object):
                                                                     targets,
                                                                     count)
 
-            # print out loss log
+                # print out loss log
+                # self.print_loss_log(start_time=start_time,
+                #                     iters_per_epoch=iters_per_epoch,
+                #                     e=e,
+                #                     i=i,
+                #                     class_loss=class_loss,
+                #                     loc_loss=loc_loss,
+                #                     loss=loss)
             if (e + 1) % self.loss_log_step == 0:
                 self.print_loss_log(start_time=start_time,
                                     iters_per_epoch=iters_per_epoch,
@@ -460,6 +469,23 @@ class Solver(object):
                                    dataset=dataset,
                                    output_txt=self.output_txt,
                                    mode='test',
+                                   iou_threshold=self.iou_threshold,
+                                   use_07_metric=self.use_07_metric)
+
+            write_print(self.output_txt, '\nResults:')
+            for ap in aps:
+                write_print(self.output_txt, '{:.4f}'.format(ap))
+            write_print(self.output_txt, '{:.4f}'.format(np.mean(aps)))
+
+        if self.dataset == 'mmmdad':
+            mmmdad_save(all_boxes=all_boxes,
+                     dataset=dataset,
+                     results_path=results_path,
+                     output_txt=self.output_txt)
+
+            aps, mAP = do_mmmdad_eval(results_path=results_path,
+                                   dataset=dataset,
+                                   output_txt=self.output_txt,
                                    iou_threshold=self.iou_threshold,
                                    use_07_metric=self.use_07_metric)
 

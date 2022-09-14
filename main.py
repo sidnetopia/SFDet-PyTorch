@@ -104,7 +104,7 @@ if __name__ == '__main__':
     parser.add_argument('--class_count', type=int, default=81,
                         help='Number of classes in dataset')
     parser.add_argument('--dataset', type=str, default='coco',
-                        choices=['voc', 'coco'],
+                        choices=['voc', 'coco', 'mmmdad'],
                         help='Dataset to use')
     parser.add_argument('--new_size', type=int, default=300,
                         help='New height and width of input images')
@@ -118,7 +118,7 @@ if __name__ == '__main__':
                         help='Anchor box configuration to use')
     parser.add_argument('--scale_initial', type=float, default=0.07,
                         help='Initial scale of anchor boxes')
-    parser.add_argument('--scale_min', type=int, default=0.15,
+    parser.add_argument('--scale_min', type=float, default=0.15,
                         help='Minimum scale of anchor boxes in generation')
 
     # training settings
@@ -131,7 +131,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_epochs', type=int, default=100,
                         help='Number of epochs')
     # 145, 182, 218 -> 160, 190, 220
-    parser.add_argument('--learning_sched', type=list, default=[],
+    parser.add_argument('--learning_sched', type=list, default=[10, 15],
                         help='List of epochs to reduce the learning rate')
     parser.add_argument('--sched_gamma', type=float, default=0.1,
                         help='Adjustment gamma for each learning sched')
@@ -192,6 +192,9 @@ if __name__ == '__main__':
     parser.add_argument('--voc_data_path', type=str,
                         default='../../Datasets/PascalVOC/',
                         help='Pascal VOC dataset path')
+    parser.add_argument('--mmmdad_data_path', type=str,
+                        default=r'D:\work_school\flev-sort\Research\codes\driver_distractedness\thesis\thesis_main\thesis_dataset\mmmdad_subset_voc\\',
+                        help='Pascal VOC dataset path')
     parser.add_argument('--use_07_metric', type=string_to_boolean,
                         default=True,
                         help='Toggles the VOC2007 11-point metric')
@@ -217,32 +220,38 @@ if __name__ == '__main__':
                         help='Number of steps for logging loss')
     parser.add_argument('--model_save_step', type=int, default=5,
                         help='Number of step for saving model')
+    parser.add_argument('--num_epochs_to_eval', type=int,
+                        default=1, help='Evaluate all epochs. Pretrained path should not contain epoch num')
+    parser.add_argument('--step_size_epochs', type=int,
+                        default=1, help='Evaluate all epochs. Pretrained path should not contain epoch num')
 
     config = parser.parse_args()
 
     args = vars(config)
     output_txt = ''
 
-    if args['mode'] == 'train':
-        version = str(datetime.now()).replace(':', '_')
-        version = '{}_train'.format(version)
-        path = args['model_save_path']
-        path = osp.join(path, version)
-        output_txt = osp.join(path, '{}.txt'.format(version))
+    for i in range(0, args["num_epochs_to_eval"], args["step_size_epochs"]):
+        if args['mode'] == 'train':
+            version = str(datetime.now()).replace(':', '_')
+            version = '{}_train'.format(version)
+            path = args['model_save_path']
+            path = osp.join(path, version)
+            output_txt = osp.join(path, '{}.txt'.format(version))
 
-    elif args['mode'] == 'test':
-        model = args['pretrained_model'].split('/')
-        version = '{}_test_{}'.format(model[0], model[1])
-        path = args['model_test_path']
-        path = osp.join(path, model[0])
-        output_txt = osp.join(path, '{}.txt'.format(version))
+        elif args['mode'] == 'test':
+            pretrained_model = args['pretrained_model'] + f"/{i}"
+            model = pretrained_model.split('/')
+            version = '{}_test_{}'.format(model[0], model[1])
+            path = args['model_test_path']
+            path = osp.join(path, model[0])
+            output_txt = osp.join(path, '{}.txt'.format(version))
 
-    mkdir(path)
-    save_config(path, version, args)
+        mkdir(path)
+        save_config(path, version, args)
 
-    write_print(output_txt, '------------ Options -------------')
-    for k, v in args.items():
-        write_print(output_txt, '{}: {}'.format(str(k), str(v)))
-    write_print(output_txt, '-------------- End ----------------')
+        write_print(output_txt, '------------ Options -------------')
+        for k, v in args.items():
+            write_print(output_txt, '{}: {}'.format(str(k), str(v)))
+        write_print(output_txt, '-------------- End ----------------')
 
-    main(version, config, output_txt)
+        main(version, config, output_txt)

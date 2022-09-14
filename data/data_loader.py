@@ -1,5 +1,6 @@
 import torch
 from data.coco import COCO
+from data.mmmdad import Mmmdad
 from data.pascal_voc import PascalVOC
 from torch.utils.data import DataLoader
 from data.augmentations import Augmentations, BaseTransform
@@ -48,6 +49,19 @@ def get_loader(config):
         elif config.mode == 'test' or config.mode:
             dataset = PascalVOC(data_path=config.voc_data_path,
                                 image_sets=voc_config[1],
+                                new_size=new_size,
+                                mode=config.mode,
+                                image_transform=image_transform)
+
+    if config.dataset == 'mmmdad':
+        if config.mode == 'train':
+            dataset = Mmmdad(data_path=config.mmmdad_data_path,
+                                new_size=new_size,
+                                mode=config.mode,
+                                image_transform=image_transform)
+
+        elif config.mode == 'test' or config.mode:
+            dataset = Mmmdad(data_path=config.mmmdad_data_path,
                                 new_size=new_size,
                                 mode=config.mode,
                                 image_transform=image_transform)
