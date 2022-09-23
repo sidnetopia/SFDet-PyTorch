@@ -12,6 +12,7 @@ from pathlib import Path
 
 VOC_CLASSES = ('phone', 'drink', 'cigarette', 'steering wheel', 'operational device', 'hand l',
                'hand r', 'head')
+AREA_TYPES = ('small', 'medium', 'large')
 
 class VOCAnnotationTransform(object):
     """This class converts the data from Annotation XML files to a list
@@ -76,7 +77,7 @@ class Mmmdad(Dataset):
     def __init__(self,
                  data_path,
                  new_size,
-                 mode,
+                 image_sets,
                  image_transform,
                  target_transform=VOCAnnotationTransform(),
                  keep_difficult=False):
@@ -86,7 +87,7 @@ class Mmmdad(Dataset):
             data_path {string} -- path to the dataset
             trainval or test
             new_size {int} -- new height and width of the image
-            mode {string} -- experiment mode - either train or test
+            image_sets {string} -- 3mdad subets
             image_transform {object} -- produces different dataset
             augmentation techniques
 
@@ -103,24 +104,20 @@ class Mmmdad(Dataset):
 
         self.data_path = data_path
         self.new_size = new_size
-        self.mode = mode
         self.image_transform = image_transform
         self.target_transform = target_transform
         self.keep_difficult = keep_difficult
 
-        self.base_path = osp.join(self.data_path, self.mode)
-        self.annotation_path = osp.join(self.base_path,
+        self.annotation_path = osp.join(self.data_path,
                                         'labels',
                                         '{}.xml' # id
                                         )
-        self.image_path = osp.join(self.base_path,
+        self.image_path = osp.join(self.data_path,
                                    'data',
                                    '{}.jpg'  # id
                                    )
 
-        ids = glob.glob(self.annotation_path.format('*'))
-
-        self.ids = [Path(id).stem for id in ids]
+        self.ids = image_sets
 
     def __len__(self):
         """Returns the number of images in the dataset
@@ -277,6 +274,16 @@ def save_results(all_boxes,
 
                         f.write(output)
 
+def calculate_area(bbox):
+    return (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
+
+def get_area_type(area):
+    if area < 32 ** 2:
+        return "small"
+    elif 32 ** 2 < area < 96 ** 2:
+        return "medium"
+    elif 96 ** 2 > area:
+        return "large"
 
 def parse_annotation(file_name):
     """ Parse a PASCAL VOC xml file """
@@ -293,6 +300,8 @@ def parse_annotation(file_name):
                               int(bbox.find('ymin').text) - 1,
                               int(bbox.find('xmax').text) - 1,
                               int(bbox.find('ymax').text) - 1]
+        obj_struct['area'] = calculate_area(obj_struct['bbox'])
+        obj_struct['area_type'] = get_area_type(obj_struct['area'])
         objects.append(obj_struct)
 
     return objects
@@ -336,7 +345,9 @@ def voc_ap(recall,
     return ap
 
 
-def voc_eval(detection_path,
+def voc_eval(
+             image_names,
+             detection_path,
              annotation_path,
              class_name,
              cache_dir,
@@ -348,11 +359,6 @@ def voc_eval(detection_path,
     if not osp.isdir(cache_dir):
         os.mkdir(cache_dir)
     cache_file = osp.join(cache_dir, 'annotations.pkl')
-
-    # read list of images
-
-    filepaths = glob.glob(annotation_path.format('*'))
-    image_names = [Path(filepath).stem for filepath in filepaths]
 
     # if cache_file does not exists
     if not osp.isfile(cache_file):
@@ -393,6 +399,152 @@ def voc_eval(detection_path,
     detection_file = detection_path.format(class_name)
     with open(detection_file, 'r') as f:
         lines = f.readlines()
+
+    # if there are detections
+    if any(lines) == 1:
+
+        # get ids, confidences, and bounding boxes
+        values = [x.strip().split(' ') for x in lines]
+        image_ids = [x[0] for x in values]
+        confidences = np.array([float(x[1]) for x in values])
+        bboxes = np.array([[float(z) for z in x[2:]] for x in values])
+
+        # sort by confidence
+        sorted_index = np.argsort(-confidences)
+        bboxes = bboxes[sorted_index, :]
+        image_ids = [image_ids[x] for x in sorted_index]
+
+        num_detections = len(image_ids)
+        tp = np.zeros(num_detections)
+        fp = np.zeros(num_detections)
+
+        # go through detections and mark TPs and FPs
+        for i in range(num_detections):
+
+            # get target bounding box
+            image_target = class_targets[image_ids[i]]
+            bbox_target = image_target['bbox'].astype(float)
+
+            # get detected bounding box
+            bbox = bboxes[i, :].astype(float)
+            overlap_max = -np.inf
+
+            if bbox_target.size > 0:
+
+                # get the overlapping region
+                # compute the area of intersection
+                x_min = np.maximum(bbox_target[:, 0], bbox[0])
+                y_min = np.maximum(bbox_target[:, 1], bbox[1])
+                x_max = np.minimum(bbox_target[:, 2], bbox[2])
+                y_max = np.minimum(bbox_target[:, 3], bbox[3])
+                width = np.maximum(x_max - x_min, 0.)
+                height = np.maximum(y_max - y_min, 0.)
+                intersection = width * height
+
+                # get the area of the gt and the detection
+                # compute the union
+                area_bbox = calculate_area(bbox)
+                area_bbox_target = ((bbox_target[:, 2] - bbox_target[:, 0])
+                                    * (bbox_target[:, 3] - bbox_target[:, 1]))
+                union = area_bbox + area_bbox_target - intersection
+
+                # compute the iou
+                iou = intersection / union
+                overlap_max = np.max(iou)
+                j_max = np.argmax(iou)
+
+            # if the maximum overlap is over the overlap threshold
+            if overlap_max > iou_threshold:
+                # if it is not difficult
+                if not image_target['difficult'][j_max]:
+                    # if it is not yet detected, count as a true positive
+                    if not image_target['det'][j_max]:
+                        tp[i] = 1.
+                        image_target['det'][j_max] = 1
+                    # else, count as a false positive
+                    else:
+                        fp[i] = 1.
+
+            # else, count as a false positive
+            else:
+                fp[i] = 1.
+
+        # compute precision and recall
+        # avoid divide by zero if the first detection matches a difficult gt
+        tp = np.cumsum(tp)
+        fp = np.cumsum(fp)
+        recall = tp / float(n_positive)
+        precision = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
+
+        ap = voc_ap(recall=recall,
+                    precision=precision,
+                    use_07_metric=use_07_metric)
+
+    else:
+        recall = -1.
+        precision = -1.
+        ap = -1.
+
+    return recall, precision, ap
+
+def voc_eval_area(
+                 image_names,
+                 detection_path,
+                 annotation_path,
+                 area_type,
+                 cache_dir,
+                 output_txt,
+                 iou_threshold=0.5,
+                 use_07_metric=True):
+
+    # create or get the cache_file
+    if not osp.isdir(cache_dir):
+        os.mkdir(cache_dir)
+    cache_file = osp.join(cache_dir, 'annotations.pkl')
+
+
+
+    # if cache_file does not exists
+    if not osp.isfile(cache_file):
+        targets = {}
+
+        # per image, read annotations from XML file
+        write_print(output_txt, 'Reading annotations')
+        for i, image_name in enumerate(image_names):
+            temp_path = annotation_path.format(image_name)
+            targets[image_name] = parse_annotation(temp_path)
+
+        # save annotations to cache_file
+        temp_string = 'Saving cached annotations to {:s}\n'.format(cache_file)
+        write_print(output_txt, temp_string)
+        with open(cache_file, 'wb') as f:
+            pickle.dump(targets, f)
+
+    # else if cache_file exists
+    else:
+        with open(cache_file, 'rb') as f:
+            targets = pickle.load(f)
+
+    class_targets = {}
+    n_positive = 0
+
+    # get targets for objects with class equal to class_name in image_name
+    for image_name in image_names:
+        target = [x for x in targets[image_name] if x['area_type'] == area_type]
+        bbox = np.array([x['bbox'] for x in target])
+        difficult = np.array([x['difficult'] for x in target]).astype(np.bool)
+        det = [False] * len(target)
+        n_positive += sum(~difficult)
+        class_targets[image_name] = {'bbox': bbox,
+                                     'difficult': difficult,
+                                     'det': det}
+
+    # read detections from class_name.txt
+    lines = []
+    for class_name in VOC_CLASSES:
+        detection_file = detection_path.format(class_name)
+        with open(detection_file, 'r') as f:
+            lines.extend(f.readlines())
 
     # if there are detections
     if any(lines) == 1:
@@ -503,7 +655,9 @@ def do_python_eval(results_path,
     aps = []
     for class_name in VOC_CLASSES:
         detection_path = osp.join(results_path, class_name + '.txt')
-        recall, precision, ap = voc_eval(detection_path=detection_path,
+        recall, precision, ap = voc_eval(
+                                         image_names=dataset.ids,
+                                         detection_path=detection_path,
                                          annotation_path=annotation_path,
                                          class_name=class_name,
                                          cache_dir=cache_dir,
@@ -515,6 +669,24 @@ def do_python_eval(results_path,
         write_print(output_txt, 'AP for {} = {:.4f}'.format(class_name, ap))
 
         pickle_file = osp.join(results_path, class_name + '_pr.pkl')
+        with open(pickle_file, 'wb') as f:
+            pickle.dump({'rec': recall, 'prec': precision, 'ap': ap}, f)
+
+    for area_type in AREA_TYPES:
+        detection_path = osp.join(results_path, '{}.txt')
+        recall, precision, ap = voc_eval_area(
+                                         image_names=dataset.ids,
+                                         detection_path=detection_path,
+                                         annotation_path=annotation_path,
+                                         area_type=area_type,
+                                         cache_dir=cache_dir,
+                                         output_txt=output_txt,
+                                         iou_threshold=iou_threshold,
+                                         use_07_metric=use_07_metric)
+
+        write_print(output_txt, 'AP for {} = {:.4f}'.format(area_type, ap))
+
+        pickle_file = osp.join(results_path, area_type + '_pr.pkl')
         with open(pickle_file, 'wb') as f:
             pickle.dump({'rec': recall, 'prec': precision, 'ap': ap}, f)
 

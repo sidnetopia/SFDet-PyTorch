@@ -9,7 +9,8 @@ from datetime import datetime
 from torch.backends import cudnn
 from data.data_loader import get_loader
 from utils.genutils import write_print, mkdir
-
+import os
+os.environ['CUDA_VISIBLE_DEVICES']='1'
 
 def zip_directory(path, zip_file):
     """Stores all py and cfg project files inside a zip file
@@ -131,7 +132,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_epochs', type=int, default=100,
                         help='Number of epochs')
     # 145, 182, 218 -> 160, 190, 220
-    parser.add_argument('--learning_sched', type=list, default=[10, 15],
+    parser.add_argument('--learning_sched', type=list, default=[15,18],
                         help='List of epochs to reduce the learning rate')
     parser.add_argument('--sched_gamma', type=float, default=0.1,
                         help='Adjustment gamma for each learning sched')
@@ -193,7 +194,7 @@ if __name__ == '__main__':
                         default='../../Datasets/PascalVOC/',
                         help='Pascal VOC dataset path')
     parser.add_argument('--mmmdad_data_path', type=str,
-                        default=r'D:\work_school\flev-sort\Research\codes\driver_distractedness\thesis\thesis_main\thesis_dataset\mmmdad_subset_voc\\',
+                        default=r'/home/jupyter-sidney_guaro/thesis/thesis_dataset/extended_3MDAD/',
                         help='Pascal VOC dataset path')
     parser.add_argument('--use_07_metric', type=string_to_boolean,
                         default=True,
@@ -222,15 +223,13 @@ if __name__ == '__main__':
                         help='Number of step for saving model')
     parser.add_argument('--num_epochs_to_eval', type=int,
                         default=1, help='Evaluate all epochs. Pretrained path should not contain epoch num')
-    parser.add_argument('--step_size_epochs', type=int,
-                        default=1, help='Evaluate all epochs. Pretrained path should not contain epoch num')
 
     config = parser.parse_args()
 
     args = vars(config)
     output_txt = ''
-
-    for i in range(0, args["num_epochs_to_eval"], args["step_size_epochs"]):
+    pretrained_model = args['pretrained_model']
+    for i in range(0, args["num_epochs_to_eval"], args["model_save_step"]):
         if args['mode'] == 'train':
             version = str(datetime.now()).replace(':', '_')
             version = '{}_train'.format(version)
@@ -239,8 +238,8 @@ if __name__ == '__main__':
             output_txt = osp.join(path, '{}.txt'.format(version))
 
         elif args['mode'] == 'test':
-            pretrained_model = args['pretrained_model'] + f"/{i}"
-            model = pretrained_model.split('/')
+            args['pretrained_model'] = pretrained_model + f"/{i+1}"
+            model = args['pretrained_model'].split('/')
             version = '{}_test_{}'.format(model[0], model[1])
             path = args['model_test_path']
             path = osp.join(path, model[0])

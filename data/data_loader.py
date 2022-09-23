@@ -4,7 +4,9 @@ from data.mmmdad import Mmmdad
 from data.pascal_voc import PascalVOC
 from torch.utils.data import DataLoader
 from data.augmentations import Augmentations, BaseTransform
-
+import fiftyone as fo
+from fiftyone import ViewField as F
+from pathlib import Path
 
 VOC_CONFIG = {
     '0712': ([('2007', 'trainval'), ('2012', 'trainval')],
@@ -54,16 +56,25 @@ def get_loader(config):
                                 image_transform=image_transform)
 
     if config.dataset == 'mmmdad':
+        fo_dataset = fo.Dataset.from_dir(
+            dataset_dir=config.mmmdad_data_path,
+            dataset_type=fo.types.VOCDetectionDataset,
+            name="extended_3MDAD",
+        )
         if config.mode == 'train':
+            training_set = fo_dataset.filter_labels("ground_truth", F("subject_number").is_in([21,31,2,1,4,3]))
+            image_sets = [Path(filepath).stem for filepath in training_set.values("filepath")]
             dataset = Mmmdad(data_path=config.mmmdad_data_path,
                                 new_size=new_size,
-                                mode=config.mode,
+                                image_sets=image_sets,
                                 image_transform=image_transform)
 
         elif config.mode == 'test' or config.mode:
+            validation_set = fo_dataset.filter_labels("ground_truth", F("subject_number").is_in([37,43]))
+            image_sets = [Path(filepath).stem for filepath in validation_set.values("filepath")]
             dataset = Mmmdad(data_path=config.mmmdad_data_path,
                                 new_size=new_size,
-                                mode=config.mode,
+                                image_sets=image_sets,
                                 image_transform=image_transform)
 
     if config.dataset == 'coco':

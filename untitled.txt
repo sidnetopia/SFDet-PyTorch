@@ -1,0 +1,7 @@
+ python main.py --class_count=9 --dataset=mmmdad --anchor_config=SSD-300 --lr=0.0001 --num_epochs=20 --sched_gamma=0.001 --batch_size=1 --model=SSD --model_save_step=1
+ 
+ python main.py --class_count=9 --dataset=mmmdad --anchor_config=SSD-300 --lr=0.0005  --num_epochs=20 --sched_gamma=0.001 --batch_size=1 --model=SSD --model_save_step=1
+ 
+  python main.py --class_count=9 --dataset=mmmdad --anchor_config=SSD-300 --lr=0.0001 --num_epochs=20 --sched_gamma=0.001 --batch_size=1 --model=SSD --model_save_step=1 --mode=test --num_epochs_to_eval=20
+  
+  python main.py --class_count=9 --dataset=mmmdad --anchor_config=SSD-300 --lr=0.0005 --num_epochs=20 --sched_gamma=0.001 --batch_size=1 --model=SSD --pretrained_model="2022-09-21 11_29_06.974782_train" --model_save_step=1 --mode=test --num_epochs_to_eval=1
